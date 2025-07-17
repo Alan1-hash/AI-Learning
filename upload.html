@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传管理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            background-color: #f5f5f5;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-right: 20px;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 40px);
+        }
+        
+        .main-content {
+            flex: 1;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            height: calc(100vh - 40px);
+            position: relative;
+        }
+        
+        .uploaded-files {
+            margin-top: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+            max-height: calc(100% - 40px);
+        }
+        
+        .file-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .file-item:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .file-info {
+            flex: 1;
+        }
+        
+        .file-delete {
+            color: #ff4444;
+            cursor: pointer;
+            padding: 5px;
+            margin-left: 10px;
+        }
+        
+        .file-delete:hover {
+            background-color: #ffeeee;
+            border-radius: 3px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 400px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #999;
+        }
+        
+        .btn {
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .btn-add {
+            background-color: #4CAF50;
+            margin-bottom: 20px;
+            padding: 15px 25px;
+            font-size: 18px;
+        }
+        
+        .btn-add:hover {
+            background-color: #45a049;
+        }
+        
+        .btn-generate {
+            background-color: #2196F3;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+        
+        .btn-generate:hover {
+            background-color: #0b7dda;
+        }
+        
+        .selected-files {
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .file-badge {
+            display: inline-block;
+            background-color: #f1f1f1;
+            padding: 3px 8px;
+            margin: 3px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        
+        .btn-upload {
+            background-color: #cccccc;
+            color: #666666;
+            cursor: not-allowed;
+        }
+        
+        .btn-upload.active {
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- 左侧边栏 - 已上传文件列表 -->
+    <div class="sidebar">
+        <h2>已上传文件</h2>
+        <div class="uploaded-files" id="uploadedFiles">
+            <!-- 文件列表将通过JavaScript动态生成 -->
+        </div>
+    </div>
+    
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <button class="btn btn-generate" id="generateBtn">Generate</button>
+        <button class="btn btn-add" id="addBtn">Add</button>
+        <p>点击"Add"按钮上传新文件</p>
+    </div>
+    
+    <!-- 上传文件模态框 -->
+    <div id="uploadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Upload Document</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="upload-area" id="dropArea">
+                <p>拖放文件到这里或点击选择文件</p>
+                <p><small>支持多选文件</small></p>
+                <input type="file" id="fileInput" style="display: none;" multiple>
+            </div>
+            <div class="selected-files" id="selectedFiles">
+                <!-- 已选择文件列表将在这里显示 -->
+            </div>
+            <button class="btn btn-upload" id="uploadBtn" disabled>Upload</button>
+        </div>
+    </div>
+    
+    <script>
+        // 获取DOM元素
+        const addBtn = document.getElementById('addBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        const modal = document.getElementById('uploadModal');
+        const closeBtn = document.querySelector('.close');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInput = document.getElementById('fileInput');
+        const dropArea = document.getElementById('dropArea');
+        const uploadedFilesList = document.getElementById('uploadedFiles');
+        const selectedFilesList = document.getElementById('selectedFiles');
+        
+        // 模拟已上传文件数据
+        let uploadedFiles = [
+            { id: 1, name: 'Document1.pdf', date: '2023-05-15', size: '2.4 MB' },
+            { id: 2, name: 'Image1.jpg', date: '2023-05-10', size: '1.8 MB' },
+            { id: 3, name: 'Report.docx', date: '2023-05-05', size: '0.5 MB' },
+            { id: 4, name: 'Presentation.pptx', date: '2023-05-04', size: '5.2 MB' },
+            { id: 5, name: 'Budget.xlsx', date: '2023-05-03', size: '1.1 MB' },
+            { id: 6, name: 'Notes.txt', date: '2023-05-02', size: '0.1 MB' },
+            { id: 7, name: 'Photo1.png', date: '2023-05-01', size: '3.7 MB' },
+            { id: 8, name: 'Contract.pdf', date: '2023-04-30', size: '4.2 MB' },
+            { id: 9, name: 'Manual.pdf', date: '2023-04-28', size: '8.5 MB' },
+            { id: 10, name: 'Data.csv', date: '2023-04-25', size: '0.8 MB' },
+            { id: 11, name: 'Diagram.svg', date: '2023-04-20', size: '0.3 MB' },
+            { id: 12, name: 'Archive.zip', date: '2023-04-15', size: '12.4 MB' }
+        ];
+        
+        // 生成唯一ID
+        function generateId() {
+            return Date.now();
+        }
+        
+        // 显示已上传文件列表
+        function renderUploadedFiles() {
+            uploadedFilesList.innerHTML = '';
+            if (uploadedFiles.length === 0) {
+                uploadedFilesList.innerHTML = '<p>暂无已上传文件</p>';
+                return;
+            }
+            
+            uploadedFiles.forEach(file => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div class="file-info">
+                        <strong>${file.name}</strong><br>
+                        <small>${file.date} · ${file.size}</small>
+                    </div>
+                    <span class="file-delete" data-id="${file.id}">×</span>
+                `;
+                uploadedFilesList.appendChild(fileItem);
+            });
+            
+            // 添加删除事件监听
+            document.querySelectorAll('.file-delete').forEach(deleteBtn => {
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const fileId = parseInt(this.getAttribute('data-id'));
+                    deleteFile(fileId);
+                });
+            });
+        }
+        
+        // 删除文件
+        function deleteFile(fileId) {
+            if (confirm('确定要删除这个文件吗？')) {
+                uploadedFiles = uploadedFiles.filter(file => file.id !== fileId);
+                renderUploadedFiles();
+            }
+        }
+        
+        // 显示已选择的文件
+        function renderSelectedFiles(files) {
+            selectedFilesList.innerHTML = '';
+            if (files.length === 0) {
+                selectedFilesList.innerHTML = '<p>未选择文件</p>';
+                return;
+            }
+            
+            selectedFilesList.innerHTML = '<p>已选择文件:</p>';
+            Array.from(files).forEach(file => {
+                const fileBadge = document.createElement('span');
+                fileBadge.className = 'file-badge';
+                fileBadge.textContent = file.name;
+                selectedFilesList.appendChild(fileBadge);
+            });
+        }
+        
+        // 更新上传按钮状态
+        function updateUploadButtonState() {
+            if (fileInput.files && fileInput.files.length > 0) {
+                uploadBtn.classList.add('active');
+                uploadBtn.disabled = false;
+            } else {
+                uploadBtn.classList.remove('active');
+                uploadBtn.disabled = true;
+            }
+        }
+        
+        // 更新拖放区域文本
+        function updateDropAreaText() {
+            if (fileInput.files.length > 0) {
+                const fileCount = fileInput.files.length;
+                dropArea.innerHTML = `<p>已选择 ${fileCount} 个文件</p><small>支持多选文件</small>`;
+                renderSelectedFiles(fileInput.files);
+            } else {
+                dropArea.innerHTML = '<p>拖放文件到这里或点击选择文件</p><small>支持多选文件</small>';
+                renderSelectedFiles([]);
+            }
+            updateUploadButtonState();
+        }
+        
+        // 初始化渲染文件列表
+        renderUploadedFiles();
+        renderSelectedFiles([]);
+        updateUploadButtonState();
+        
+        // 打开模态框
+        addBtn.addEventListener('click', () => {
+            modal.style.display = 'block';
+        });
+        
+        // Generate按钮点击事件（暂无功能）
+        generateBtn.addEventListener('click', () => {
+            alert('Generate功能待实现');
+        });
+        
+        // 关闭模态框
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        
+        // 点击模态框外部关闭
+        window.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+        
+        // 点击上传区域触发文件选择
+        dropArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // 处理拖放功能
+        dropArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropArea.style.borderColor = '#4CAF50';
+        });
+        
+        dropArea.addEventListener('dragleave', () => {
+            dropArea.style.borderColor = '#ccc';
+        });
+        
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropArea.style.borderColor = '#ccc';
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateDropAreaText();
+            }
+        });
+        
+        // 文件选择变化时更新显示
+        fileInput.addEventListener('change', updateDropAreaText);
+        
+        // 上传文件
+        uploadBtn.addEventListener('click', () => {
+            const files = fileInput.files;
+            
+            if (files && files.length > 0) {
+                Array.from(files).forEach(file => {
+                    const fileSize = (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+                    const uploadDate = new Date().toISOString().split('T')[0];
+                    
+                    uploadedFiles.unshift({
+                        id: generateId(),
+                        name: file.name,
+                        date: uploadDate,
+                        size: fileSize
+                    });
+                });
+                
+                renderUploadedFiles();
+                alert(`成功上传 ${files.length} 个文件!`);
+                
+                // 重置UI
+                modal.style.display = 'none';
+                fileInput.value = '';
+                dropArea.innerHTML = '<p>拖放文件到这里或点击选择文件</p><small>支持多选文件</small>';
+                renderSelectedFiles([]);
+                updateUploadButtonState();
+            }
+        });
+    </script>
+</body>
+</html>
