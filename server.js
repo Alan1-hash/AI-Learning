@@ -4,7 +4,7 @@ const path = require('path');
 const app = express();
 require('dotenv').config();
 
-// 数据库连接配置
+// PostgreSQL 连接配置
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -17,38 +17,27 @@ const pool = new Pool({
 // 测试数据库连接
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
-    console.error('Error connecting to the database', err.stack);
+    console.error('❌ 数据库连接失败:', err.stack);
   } else {
-    console.log('Successfully connected to the database at', res.rows[0].now);
+    console.log('✅ 数据库连接成功:', res.rows[0].now);
   }
 });
 
-// 设置静态文件目录
+// 静态资源访问目录
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API 路由 - 获取图片数据
-app.get('/api/images', async (req, res) => {
+// 获取 media 表中的图片和视频数据
+app.get('/api/media', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM images');
+    const result = await pool.query('SELECT * FROM public.media ORDER BY id ASC');
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// API 路由 - 获取视频数据
-app.get('/api/videos', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM videos');
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
+    console.error('❌ 查询失败:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🌐 Server running on port ${PORT}`);
 });
